@@ -17,51 +17,57 @@ const AppContextProvider = (props) => {
 
   const loadCreditsData = async () => {
     try {
-      const { data } = await axios.get(`${backendUrl}/api/user/credits`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const { data } = await axios.get(backendUrl + "/api/user/credits", {
+        headers: { token },
       });
 
       if (data.success) {
-        console.log("Credits response:", data); // ✅ Debug log
         setCredit(data.credits);
         setUser(data.user);
       }
     } catch (error) {
       console.log(error);
-      toast.error(error.message || "Failed to load credits");
+      toast.error(error.message);
     }
   };
 
   const generateImage = async (prompt) => {
-    try {
-      const { data } = await axios.post(
-        `${backendUrl}/api/image/generate-image`,
-        { prompt },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  try {
+    const response = await axios.post(
+      backendUrl + "/api/image/generate-image",
+      { prompt, userId: user?._id }, // ✅ Send userId (required in your backend)
+      { headers: { token } }
+    );
 
-      console.log("Generated image response:", data); // ✅ Debug log
+    const data = response.data;
 
-      if (data.success) {
-        loadCreditsData(); // refresh credit after generation
-        return data.resultImage;
-      } else {
-        toast.error(data.message);
-        loadCreditsData();
-        if (data.creditBalance === 0) {
-          navigate("/buy");
-        }
+    if (data.success) {
+      loadCreditsData();
+      return data.resultImage;
+    } else {
+      toast.error(data.message || "Something went wrong");
+      loadCreditsData();
+      if (data.creditBalance === 0 || data.message === "No Credit Balance") {
+        navigate("/buy");
       }
-    } catch (error) {
-      toast.error(error.message || "Image generation failed");
+      return null;
     }
-  };
+  } catch (error) {
+    const msg =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Something went wrong";
+    toast.error(msg);
+
+    const creditBalance = error?.response?.data?.creditBalance;
+    if (creditBalance === 0 || msg === "No Credit Balance") {
+      navigate("/buy");
+    }
+
+    return null;
+  }
+};
+
 
   const logout = () => {
     localStorage.removeItem("token");
